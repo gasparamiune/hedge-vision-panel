@@ -28,9 +28,7 @@ export function useDashboardData() {
       const endpoints: TabKey[] = ["decisions", "opportunities", "signals", "runs"];
       const results = await Promise.all(
         endpoints.map((ep) =>
-          fetch(`${API_BASE}/${ep}`, {
-            headers: { "ngrok-skip-browser-warning": "true" },
-          }).then((res) => {
+          fetch(`${API_BASE}/${ep}`).then((res) => {
             if (!res.ok) throw new Error(`${ep}: ${res.status}`);
             return res.json();
           })
