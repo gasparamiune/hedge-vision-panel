@@ -1,12 +1,41 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { DashboardHeader } from "@/components/DashboardHeader";
+import { DataTable } from "@/components/DataTable";
+import { useDashboardData, type TabKey } from "@/hooks/use-dashboard-data";
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<TabKey>("decisions");
+  const { data, loading, error, refresh } = useDashboardData();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <DashboardHeader
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onRefresh={refresh}
+        loading={loading}
+      />
+
+      <main className="max-w-[1600px] mx-auto p-6">
+        {error && (
+          <div className="mb-4 px-4 py-2 border border-terminal-red/30 bg-terminal-red/5 text-terminal-red text-xs font-mono rounded-sm">
+            CONNECTION ERROR // {error}
+          </div>
+        )}
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+          >
+            <DataTable type={activeTab} items={data[activeTab]} />
+          </motion.div>
+        </AnimatePresence>
+      </main>
     </div>
   );
 };
