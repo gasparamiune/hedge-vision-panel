@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = "https://margaretta-unchafed-lorna.ngrok-free.dev";
 
@@ -11,8 +11,6 @@ export interface DashboardData {
 
 export type TabKey = keyof DashboardData;
 
-const AUTO_REFRESH_INTERVAL = 30_000; // 30 seconds
-
 export function useDashboardData() {
   const [data, setData] = useState<DashboardData>({
     decisions: [],
@@ -22,8 +20,6 @@ export function useDashboardData() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -46,7 +42,6 @@ export function useDashboardData() {
         signals: results[2],
         runs: results[3],
       });
-      setLastRefresh(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fetch failed");
     } finally {
@@ -56,11 +51,7 @@ export function useDashboardData() {
 
   useEffect(() => {
     fetchData();
-    intervalRef.current = setInterval(fetchData, AUTO_REFRESH_INTERVAL);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
   }, [fetchData]);
 
-  return { data, loading, error, refresh: fetchData, lastRefresh };
+  return { data, loading, error, refresh: fetchData };
 }
