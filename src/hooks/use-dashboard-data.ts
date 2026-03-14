@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://margaretta-unchafed-lorna.ngrok-free.dev";
 
 export interface DashboardData {
   decisions: Record<string, unknown>[];
