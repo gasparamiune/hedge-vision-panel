@@ -11,9 +11,9 @@ export interface DashboardData {
 export type TabKey = keyof DashboardData;
 
 const TABLE_MAP: Record<TabKey, string> = {
-  decisions: "decision_records",
-  opportunities: "opportunity_records",
-  signals: "signal_records",
+  decisions: "decisions",
+  opportunities: "opportunities",
+  signals: "signals",
   runs: "agent_runs",
 };
 
