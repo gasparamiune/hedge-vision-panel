@@ -6,6 +6,7 @@ import { OpportunitiesTab } from "@/components/OpportunitiesTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { DecisionsTab } from "@/components/DecisionsTab";
 import { SystemStatusTab } from "@/components/SystemStatusTab";
+import { AgentMapTab } from "@/components/AgentMapTab";
 import { useDashboardData, type TabKey } from "@/hooks/use-dashboard-data";
 
 const Index = () => {
