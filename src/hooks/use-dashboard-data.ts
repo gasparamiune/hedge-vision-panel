@@ -11,9 +11,10 @@ export interface DashboardData {
   status: Record<string, unknown>[];
 }
 
-export type TabKey = keyof DashboardData | "agent_map";
+export type DataTabKey = keyof DashboardData;
+export type TabKey = DataTabKey | "agent_map";
 
-export const TAB_ORDER: (TabKey)[] = ["portfolio", "decisions", "opportunities", "signals", "status", "agent_map"];
+export const TAB_ORDER: TabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status", "agent_map"];
 
 const TABLE_MAP: Record<TabKey, string> = {
   portfolio: "paper_trades",
