@@ -59,7 +59,7 @@ export function DecisionsTab({ items }: DecisionsTabProps) {
                       onClick={() => {
                         const asset = String(item.asset ?? "");
                         const ts = String(item.created_at ?? item.timestamp ?? "");
-                        const url = `https://oanaswbwlxryhrttyfyv.supabase.co/storage/v1/object/public/reports/${asset}_${action}_${ts}.pdf`;
+                        const url = `https://web-production-80b22.up.railway.app/reports/${asset}_${action}_${ts}.pdf`;
                         window.open(url, "_blank");
                       }}
                       className="p-1 hover:bg-secondary rounded-sm transition-colors"
