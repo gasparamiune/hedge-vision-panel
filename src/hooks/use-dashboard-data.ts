@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-
-const API_BASE = "https://margaretta-unchafed-lorna.ngrok-free.dev";
+import { supabase } from "@/lib/supabase";
 
 export interface DashboardData {
   decisions: Record<string, unknown>[];
@@ -10,6 +9,13 @@ export interface DashboardData {
 }
 
 export type TabKey = keyof DashboardData;
+
+const TABLE_MAP: Record<TabKey, string> = {
+  decisions: "decision_records",
+  opportunities: "opportunity_records",
+  signals: "signal_records",
+  runs: "agent_runs",
+};
 
 export function useDashboardData() {
   const [data, setData] = useState<DashboardData>({
@@ -25,16 +31,15 @@ export function useDashboardData() {
     setLoading(true);
     setError(null);
     try {
-      const endpoints: TabKey[] = ["decisions", "opportunities", "signals", "runs"];
+      const keys: TabKey[] = ["decisions", "opportunities", "signals", "runs"];
       const results = await Promise.all(
-        endpoints.map((ep) =>
-          fetch(`${API_BASE}/${ep}`, {
-            headers: { "ngrok-skip-browser-warning": "true" },
-          }).then((res) => {
-            if (!res.ok) throw new Error(`${ep}: ${res.status}`);
-            return res.json();
-          })
-        )
+        keys.map(async (key) => {
+          const { data, error } = await supabase
+            .from(TABLE_MAP[key])
+            .select("*");
+          if (error) throw new Error(`${key}: ${error.message}`);
+          return data ?? [];
+        })
       );
       setData({
         decisions: results[0],
