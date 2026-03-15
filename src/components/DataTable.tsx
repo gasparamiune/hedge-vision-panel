@@ -44,6 +44,13 @@ export function DataTable({ type, items }: DataTableProps) {
   );
 }
 
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    try { return JSON.parse(value); } catch { return value; }
+  }
+  return value;
+}
+
 function CellRenderer({ column, value }: { column: string; value: unknown }) {
   if (column.includes("score") && typeof value === "number") {
     const pct = value > 1 ? value : value * 100;
@@ -92,16 +99,63 @@ function CellRenderer({ column, value }: { column: string; value: unknown }) {
     return <span className={`${color} font-bold uppercase text-[10px] tracking-wider`}>{value}</span>;
   }
 
-  if (column === "source_scores" && typeof value === "object" && value !== null) {
-    return (
-      <div className="flex gap-2 flex-wrap">
-        {Object.entries(value as Record<string, number>).map(([k, v]) => (
-          <span key={k} className="text-muted-foreground">
-            <span className="text-foreground">{k}</span>:{typeof v === "number" ? (v * 100).toFixed(0) : String(v)}
-          </span>
-        ))}
-      </div>
-    );
+  // source_scores: show agent name + weighted_score badges
+  if (column === "source_scores") {
+    const parsed = parseJsonValue(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return (
+        <div className="flex gap-1.5 flex-wrap">
+          {Object.entries(parsed as Record<string, unknown>).map(([agent, scoreData]) => {
+            let score: number | null = null;
+            if (typeof scoreData === "number") {
+              score = scoreData;
+            } else if (scoreData && typeof scoreData === "object" && "weighted_score" in (scoreData as Record<string, unknown>)) {
+              score = (scoreData as Record<string, unknown>).weighted_score as number;
+            }
+            return (
+              <span key={agent} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-secondary text-[10px]">
+                <span className="text-foreground font-medium">{agent}</span>
+                {score !== null && (
+                  <span className="text-muted-foreground">{(score > 1 ? score : score * 100).toFixed(0)}</span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
+  }
+
+  // signals_json: show count
+  if (column === "signals_json") {
+    const parsed = parseJsonValue(value);
+    if (Array.isArray(parsed)) {
+      return <span className="text-muted-foreground">{parsed.length} signal{parsed.length !== 1 ? "s" : ""}</span>;
+    }
+    if (parsed && typeof parsed === "object") {
+      const count = Object.keys(parsed).length;
+      return <span className="text-muted-foreground">{count} signal{count !== 1 ? "s" : ""}</span>;
+    }
+  }
+
+  // Generic JSON fallback for any other object/array columns
+  if (value !== null && value !== undefined) {
+    const parsed = parseJsonValue(value);
+    if (Array.isArray(parsed)) {
+      return <span className="text-muted-foreground">{parsed.length} items</span>;
+    }
+    if (typeof parsed === "object" && parsed !== null) {
+      return (
+        <div className="flex gap-1.5 flex-wrap">
+          {Object.entries(parsed as Record<string, unknown>).map(([k, v]) => (
+            <span key={k} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-secondary text-[10px]">
+              <span className="text-foreground font-medium">{k}</span>
+              <span className="text-muted-foreground">{typeof v === "object" ? "…" : String(v)}</span>
+            </span>
+          ))}
+        </div>
+      );
+    }
   }
 
   return <span>{String(value ?? "—")}</span>;
