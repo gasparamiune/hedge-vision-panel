@@ -16,6 +16,9 @@ export function PortfolioTab({ items }: PortfolioTabProps) {
   const withPnl = items.map((i) => ({
     ...i,
     pnl: calcPnl(Number(i.entry_price) || 0, Number(i.current_price) || 0),
+  } as Record<string, unknown> & { pnl: number }));
+    ...i,
+    pnl: calcPnl(Number(i.entry_price) || 0, Number(i.current_price) || 0),
   }));
   const best = withPnl.reduce((a, b) => (a.pnl > b.pnl ? a : b), withPnl[0]);
   const worst = withPnl.reduce((a, b) => (a.pnl < b.pnl ? a : b), withPnl[0]);
