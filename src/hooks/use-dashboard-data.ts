@@ -16,7 +16,7 @@ export type TabKey = DataTabKey | "agent_map";
 
 export const TAB_ORDER: TabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status", "agent_map"];
 
-const TABLE_MAP: Record<TabKey, string> = {
+const TABLE_MAP: Record<DataTabKey, string> = {
   portfolio: "paper_trades",
   decisions: "decisions",
   opportunities: "opportunities",
