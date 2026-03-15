@@ -61,7 +61,7 @@ export function useDashboardData() {
     setLoading(true);
     setError(null);
     try {
-      const keys = TAB_ORDER;
+      const keys: DataTabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status"];
       const results = await Promise.all(
         keys.map(async (key) => {
           const { data, error } = await supabase
