@@ -1,12 +1,26 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { DataTable } from "@/components/DataTable";
+import { PortfolioTab } from "@/components/PortfolioTab";
+import { OpportunitiesTab } from "@/components/OpportunitiesTab";
+import { SignalsTab } from "@/components/SignalsTab";
+import { DecisionsTab } from "@/components/DecisionsTab";
+import { SystemStatusTab } from "@/components/SystemStatusTab";
 import { useDashboardData, type TabKey } from "@/hooks/use-dashboard-data";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("decisions");
-  const { data, loading, error, refresh } = useDashboardData();
+  const [activeTab, setActiveTab] = useState<TabKey>("portfolio");
+  const { data, loading, error, refresh, assetClassFilter, setAssetClassFilter, lastRefreshTime } = useDashboardData();
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case "portfolio": return <PortfolioTab items={data.portfolio} />;
+      case "opportunities": return <OpportunitiesTab items={data.opportunities} />;
+      case "signals": return <SignalsTab items={data.signals} />;
+      case "decisions": return <DecisionsTab items={data.decisions} />;
+      case "status": return <SystemStatusTab items={data.status} />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -15,6 +29,9 @@ const Index = () => {
         onTabChange={setActiveTab}
         onRefresh={refresh}
         loading={loading}
+        assetClassFilter={assetClassFilter}
+        onAssetClassFilterChange={setAssetClassFilter}
+        lastRefreshTime={lastRefreshTime}
       />
 
       <main className="max-w-[1600px] mx-auto p-6">
@@ -32,7 +49,7 @@ const Index = () => {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
-            <DataTable type={activeTab} items={data[activeTab]} />
+            {renderTab()}
           </motion.div>
         </AnimatePresence>
       </main>

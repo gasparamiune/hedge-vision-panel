@@ -35,6 +35,15 @@
     --terminal-dim: 240 4% 26%;
     --terminal-ghost: 240 5% 10%;
 
+    /* Agent colors */
+    --agent-green: 142 71% 45%;
+    --agent-cyan: 187 85% 53%;
+    --agent-blue: 217 91% 60%;
+    --agent-orange: 25 95% 53%;
+    --agent-yellow: 48 96% 53%;
+    --agent-purple: 271 76% 53%;
+    --agent-gray: 220 9% 46%;
+
     --sidebar-background: 240 5% 8%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 0 0% 98%;

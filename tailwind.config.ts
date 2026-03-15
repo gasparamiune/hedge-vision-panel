@@ -55,6 +55,15 @@ export default {
           dim: "hsl(var(--terminal-dim))",
           ghost: "hsl(var(--terminal-ghost))",
         },
+        agent: {
+          green: "hsl(var(--agent-green))",
+          cyan: "hsl(var(--agent-cyan))",
+          blue: "hsl(var(--agent-blue))",
+          orange: "hsl(var(--agent-orange))",
+          yellow: "hsl(var(--agent-yellow))",
+          purple: "hsl(var(--agent-purple))",
+          gray: "hsl(var(--agent-gray))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
