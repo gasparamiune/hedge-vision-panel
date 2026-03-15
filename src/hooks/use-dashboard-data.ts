@@ -11,11 +11,12 @@ export interface DashboardData {
   status: Record<string, unknown>[];
 }
 
-export type TabKey = keyof DashboardData;
+export type DataTabKey = keyof DashboardData;
+export type TabKey = DataTabKey | "agent_map";
 
-export const TAB_ORDER: TabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status"];
+export const TAB_ORDER: TabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status", "agent_map"];
 
-const TABLE_MAP: Record<TabKey, string> = {
+const TABLE_MAP: Record<DataTabKey, string> = {
   portfolio: "paper_trades",
   decisions: "decisions",
   opportunities: "opportunities",
@@ -29,6 +30,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   opportunities: "OPPORTUNITIES",
   signals: "SIGNALS",
   status: "SYSTEM STATUS",
+  agent_map: "AGENT MAP",
 };
 
 export { TAB_LABELS };
@@ -59,7 +61,7 @@ export function useDashboardData() {
     setLoading(true);
     setError(null);
     try {
-      const keys = TAB_ORDER;
+      const keys: DataTabKey[] = ["portfolio", "decisions", "opportunities", "signals", "status"];
       const results = await Promise.all(
         keys.map(async (key) => {
           const { data, error } = await supabase

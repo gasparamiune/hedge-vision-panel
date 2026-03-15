@@ -6,6 +6,7 @@ import { OpportunitiesTab } from "@/components/OpportunitiesTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { DecisionsTab } from "@/components/DecisionsTab";
 import { SystemStatusTab } from "@/components/SystemStatusTab";
+import { AgentMapTab } from "@/components/AgentMapTab";
 import { useDashboardData, type TabKey } from "@/hooks/use-dashboard-data";
 
 const Index = () => {
@@ -19,6 +20,7 @@ const Index = () => {
       case "signals": return <SignalsTab items={data.signals} />;
       case "decisions": return <DecisionsTab items={data.decisions} />;
       case "status": return <SystemStatusTab items={data.status} />;
+      case "agent_map": return <AgentMapTab />;
     }
   };
 
