@@ -20,6 +20,7 @@ const Index = () => {
       case "signals": return <SignalsTab items={data.signals} />;
       case "decisions": return <DecisionsTab items={data.decisions} />;
       case "status": return <SystemStatusTab items={data.status} />;
+      case "agent_map": return <AgentMapTab />;
     }
   };
 

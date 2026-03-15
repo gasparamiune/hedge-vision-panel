@@ -29,6 +29,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   opportunities: "OPPORTUNITIES",
   signals: "SIGNALS",
   status: "SYSTEM STATUS",
+  agent_map: "AGENT MAP",
 };
 
 export { TAB_LABELS };
