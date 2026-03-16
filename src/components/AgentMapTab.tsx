@@ -22,6 +22,7 @@ const AGENTS: AgentNode[] = [
 
 interface SignalData {
   agent_name?: string;
+  signal_type?: string;
   asset?: string;
   score?: number;
   created_at?: string;
@@ -30,9 +31,10 @@ interface SignalData {
 interface DecisionData {
   action?: string;
   asset?: string;
-  agent_count?: number;
+  score?: number;
+  thesis?: string;
   created_at?: string;
-  combined_score?: number;
+  metadata_json?: { agent_count?: number };
 }
 
 interface ActiveAgent {
@@ -61,6 +63,7 @@ export function AgentMapTab() {
   const [centerPulse, setCenterPulse] = useState<CenterPulse | null>(null);
   const [highestScore, setHighestScore] = useState<number>(0);
   const [recentDecisions, setRecentDecisions] = useState<DecisionData[]>([]);
+  const [debugInfo, setDebugInfo] = useState({ lastFetch: "", signalCount: 0, decisionCount: 0, error: "" });
   const animFrameRef = useRef<number>(0);
   const particleIdRef = useRef(0);
 
@@ -95,16 +98,14 @@ export function AgentMapTab() {
 
   const processSignals = useCallback((signals: SignalData[]) => {
     const now = Date.now();
-    const twoMinAgo = now - 2 * 60 * 1000;
-
     const newLastSignals = new Map<string, { asset: string; score: number }>();
     const newActive = new Map<string, ActiveAgent>();
     const assetAgents: Record<string, string[]> = {};
 
-    // Group by agent, keep latest per agent
+    // Group by agent, keep latest per agent — match by agent_name OR signal_type
     const latestByAgent = new Map<string, SignalData>();
     signals.forEach((sig) => {
-      const agentId = normalizeToId(sig.agent_name ?? "");
+      const agentId = normalizeToId(sig.agent_name ?? "") ?? normalizeToId(sig.signal_type ?? "");
       if (!agentId) return;
       const existing = latestByAgent.get(agentId);
       if (!existing || (sig.created_at ?? "") > (existing.created_at ?? "")) {
@@ -117,8 +118,7 @@ export function AgentMapTab() {
       const asset = sig.asset ?? "???";
       newLastSignals.set(agentId, { asset, score });
 
-      const sigTime = sig.created_at ? new Date(sig.created_at).getTime() : 0;
-      if (score > 0.1 && sigTime > twoMinAgo) {
+      if (score > 0.1) {
         newActive.set(agentId, { id: agentId, asset, score, expiry: now + 120000 });
         if (!assetAgents[asset]) assetAgents[asset] = [];
         assetAgents[asset].push(agentId);
@@ -150,7 +150,7 @@ export function AgentMapTab() {
       setCenterPulse({ type: "paper_trade", expiry: Date.now() + 3000 });
     }
 
-    const maxScore = decisions.reduce((max, d) => Math.max(max, d.combined_score ?? 0), 0);
+    const maxScore = decisions.reduce((max, d) => Math.max(max, d.score ?? 0), 0);
     if (maxScore > 0) setHighestScore(maxScore);
   }, []);
 
@@ -160,19 +160,23 @@ export function AgentMapTab() {
     const poll = async () => {
       try {
         const [sigRes, decRes] = await Promise.all([
-          fetch(`${API_BASE}/signals?since_hours=0.5`, { headers }),
-          fetch(`${API_BASE}/decisions?since_hours=0.5`, { headers }),
+          fetch(`${API_BASE}/signals?limit=100`, { headers }),
+          fetch(`${API_BASE}/decisions?limit=100`, { headers }),
         ]);
+        let sc = 0, dc = 0;
         if (sigRes.ok) {
           const signals = await sigRes.json();
-          if (Array.isArray(signals) && signals.length > 0) processSignals(signals);
+          sc = Array.isArray(signals) ? signals.length : 0;
+          if (sc > 0) processSignals(signals);
         }
         if (decRes.ok) {
           const decisions = await decRes.json();
-          if (Array.isArray(decisions) && decisions.length > 0) processDecisions(decisions);
+          dc = Array.isArray(decisions) ? decisions.length : 0;
+          if (dc > 0) processDecisions(decisions);
         }
-      } catch {
-        // silent
+        setDebugInfo({ lastFetch: new Date().toLocaleTimeString(), signalCount: sc, decisionCount: dc, error: "" });
+      } catch (e: any) {
+        setDebugInfo((prev) => ({ ...prev, error: e?.message ?? "fetch failed", lastFetch: new Date().toLocaleTimeString() }));
       }
     };
     poll();
@@ -242,6 +246,13 @@ export function AgentMapTab() {
     <div className="space-y-6">
       {/* SVG Canvas */}
       <div className="relative rounded-lg border border-border overflow-hidden" style={{ background: "hsl(220 30% 8%)" }}>
+        {/* Debug panel */}
+        <div className="absolute top-2 right-2 z-10 bg-black/80 border border-border rounded px-3 py-2 font-mono text-[10px] space-y-0.5" style={{ minWidth: 180 }}>
+          <div className="text-muted-foreground">LAST FETCH: <span className="text-foreground">{debugInfo.lastFetch || "—"}</span></div>
+          <div className="text-muted-foreground">SIGNALS: <span className="text-foreground">{debugInfo.signalCount}</span></div>
+          <div className="text-muted-foreground">DECISIONS: <span className="text-foreground">{debugInfo.decisionCount}</span></div>
+          {debugInfo.error && <div className="text-destructive">ERR: {debugInfo.error}</div>}
+        </div>
         <svg viewBox="0 0 800 600" className="w-full" style={{ maxHeight: "65vh" }}>
           <defs>
             {AGENTS.map((agent) => (
@@ -460,7 +471,7 @@ export function AgentMapTab() {
                     </span>
                   </div>
                   <div className="text-[10px] text-muted-foreground">
-                    {d.agent_count ?? 0} agents • {(d.combined_score ?? 0).toFixed(2)}
+                    {d.metadata_json?.agent_count ?? 0} agents • {(d.score ?? 0).toFixed(2)}
                   </div>
                 </div>
               );
