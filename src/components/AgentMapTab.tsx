@@ -246,6 +246,13 @@ export function AgentMapTab() {
     <div className="space-y-6">
       {/* SVG Canvas */}
       <div className="relative rounded-lg border border-border overflow-hidden" style={{ background: "hsl(220 30% 8%)" }}>
+        {/* Debug panel */}
+        <div className="absolute top-2 right-2 z-10 bg-black/80 border border-border rounded px-3 py-2 font-mono text-[10px] space-y-0.5" style={{ minWidth: 180 }}>
+          <div className="text-muted-foreground">LAST FETCH: <span className="text-foreground">{debugInfo.lastFetch || "—"}</span></div>
+          <div className="text-muted-foreground">SIGNALS: <span className="text-foreground">{debugInfo.signalCount}</span></div>
+          <div className="text-muted-foreground">DECISIONS: <span className="text-foreground">{debugInfo.decisionCount}</span></div>
+          {debugInfo.error && <div className="text-destructive">ERR: {debugInfo.error}</div>}
+        </div>
         <svg viewBox="0 0 800 600" className="w-full" style={{ maxHeight: "65vh" }}>
           <defs>
             {AGENTS.map((agent) => (
