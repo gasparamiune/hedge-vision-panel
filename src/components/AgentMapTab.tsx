@@ -98,16 +98,14 @@ export function AgentMapTab() {
 
   const processSignals = useCallback((signals: SignalData[]) => {
     const now = Date.now();
-    const twoMinAgo = now - 2 * 60 * 1000;
-
     const newLastSignals = new Map<string, { asset: string; score: number }>();
     const newActive = new Map<string, ActiveAgent>();
     const assetAgents: Record<string, string[]> = {};
 
-    // Group by agent, keep latest per agent
+    // Group by agent, keep latest per agent — match by agent_name OR signal_type
     const latestByAgent = new Map<string, SignalData>();
     signals.forEach((sig) => {
-      const agentId = normalizeToId(sig.agent_name ?? "");
+      const agentId = normalizeToId(sig.agent_name ?? "") ?? normalizeToId(sig.signal_type ?? "");
       if (!agentId) return;
       const existing = latestByAgent.get(agentId);
       if (!existing || (sig.created_at ?? "") > (existing.created_at ?? "")) {
