@@ -156,11 +156,12 @@ export function AgentMapTab() {
 
   // Poll API
   useEffect(() => {
+    const headers = { "ngrok-skip-browser-warning": "true" };
     const poll = async () => {
       try {
         const [sigRes, decRes] = await Promise.all([
-          fetch(`${API_BASE}/signals?since_hours=0.1`),
-          fetch(`${API_BASE}/decisions?since_hours=0.1`),
+          fetch(`${API_BASE}/signals?since_hours=0.5`, { headers }),
+          fetch(`${API_BASE}/decisions?since_hours=0.5`, { headers }),
         ]);
         if (sigRes.ok) {
           const signals = await sigRes.json();
