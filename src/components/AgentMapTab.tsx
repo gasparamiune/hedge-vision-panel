@@ -63,6 +63,7 @@ export function AgentMapTab() {
   const [centerPulse, setCenterPulse] = useState<CenterPulse | null>(null);
   const [highestScore, setHighestScore] = useState<number>(0);
   const [recentDecisions, setRecentDecisions] = useState<DecisionData[]>([]);
+  const [debugInfo, setDebugInfo] = useState({ lastFetch: "", signalCount: 0, decisionCount: 0, error: "" });
   const animFrameRef = useRef<number>(0);
   const particleIdRef = useRef(0);
 
