@@ -160,19 +160,23 @@ export function AgentMapTab() {
     const poll = async () => {
       try {
         const [sigRes, decRes] = await Promise.all([
-          fetch(`${API_BASE}/signals?since_hours=0.5`, { headers }),
-          fetch(`${API_BASE}/decisions?since_hours=0.5`, { headers }),
+          fetch(`${API_BASE}/signals?limit=100`, { headers }),
+          fetch(`${API_BASE}/decisions?limit=100`, { headers }),
         ]);
+        let sc = 0, dc = 0;
         if (sigRes.ok) {
           const signals = await sigRes.json();
-          if (Array.isArray(signals) && signals.length > 0) processSignals(signals);
+          sc = Array.isArray(signals) ? signals.length : 0;
+          if (sc > 0) processSignals(signals);
         }
         if (decRes.ok) {
           const decisions = await decRes.json();
-          if (Array.isArray(decisions) && decisions.length > 0) processDecisions(decisions);
+          dc = Array.isArray(decisions) ? decisions.length : 0;
+          if (dc > 0) processDecisions(decisions);
         }
-      } catch {
-        // silent
+        setDebugInfo({ lastFetch: new Date().toLocaleTimeString(), signalCount: sc, decisionCount: dc, error: "" });
+      } catch (e: any) {
+        setDebugInfo((prev) => ({ ...prev, error: e?.message ?? "fetch failed", lastFetch: new Date().toLocaleTimeString() }));
       }
     };
     poll();
