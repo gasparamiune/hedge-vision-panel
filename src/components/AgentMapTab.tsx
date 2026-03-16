@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-
-const API_BASE = "https://web-production-80b22.up.railway.app";
+import { supabase } from "@/lib/supabase";
 
 interface AgentNode {
   id: string;
@@ -154,26 +153,20 @@ export function AgentMapTab() {
     if (maxScore > 0) setHighestScore(maxScore);
   }, []);
 
-  // Poll API
+  // Poll Supabase
   useEffect(() => {
-    const headers = { "ngrok-skip-browser-warning": "true" };
     const poll = async () => {
       try {
-        const [sigRes, decRes] = await Promise.all([
-          fetch(`${API_BASE}/signals?limit=100`, { headers }),
-          fetch(`${API_BASE}/decisions?limit=100`, { headers }),
+        const [{ data: signals, error: sigErr }, { data: decisions, error: decErr }] = await Promise.all([
+          supabase.from("signals").select("*").order("created_at", { ascending: false }).limit(100),
+          supabase.from("decisions").select("*").order("created_at", { ascending: false }).limit(100),
         ]);
-        let sc = 0, dc = 0;
-        if (sigRes.ok) {
-          const signals = await sigRes.json();
-          sc = Array.isArray(signals) ? signals.length : 0;
-          if (sc > 0) processSignals(signals);
-        }
-        if (decRes.ok) {
-          const decisions = await decRes.json();
-          dc = Array.isArray(decisions) ? decisions.length : 0;
-          if (dc > 0) processDecisions(decisions);
-        }
+        if (sigErr) throw new Error(sigErr.message);
+        if (decErr) throw new Error(decErr.message);
+        const sc = signals?.length ?? 0;
+        const dc = decisions?.length ?? 0;
+        if (sc > 0) processSignals(signals as SignalData[]);
+        if (dc > 0) processDecisions(decisions as DecisionData[]);
         setDebugInfo({ lastFetch: new Date().toLocaleTimeString(), signalCount: sc, decisionCount: dc, error: "" });
       } catch (e: any) {
         setDebugInfo((prev) => ({ ...prev, error: e?.message ?? "fetch failed", lastFetch: new Date().toLocaleTimeString() }));
