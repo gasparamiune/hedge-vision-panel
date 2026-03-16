@@ -150,7 +150,7 @@ export function AgentMapTab() {
       setCenterPulse({ type: "paper_trade", expiry: Date.now() + 3000 });
     }
 
-    const maxScore = decisions.reduce((max, d) => Math.max(max, d.combined_score ?? 0), 0);
+    const maxScore = decisions.reduce((max, d) => Math.max(max, d.score ?? 0), 0);
     if (maxScore > 0) setHighestScore(maxScore);
   }, []);
 
