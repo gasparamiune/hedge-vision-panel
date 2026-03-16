@@ -464,7 +464,7 @@ export function AgentMapTab() {
                     </span>
                   </div>
                   <div className="text-[10px] text-muted-foreground">
-                    {d.agent_count ?? 0} agents • {(d.combined_score ?? 0).toFixed(2)}
+                    {d.metadata_json?.agent_count ?? 0} agents • {(d.score ?? 0).toFixed(2)}
                   </div>
                 </div>
               );
