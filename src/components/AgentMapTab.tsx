@@ -118,8 +118,7 @@ export function AgentMapTab() {
       const asset = sig.asset ?? "???";
       newLastSignals.set(agentId, { asset, score });
 
-      const sigTime = sig.created_at ? new Date(sig.created_at).getTime() : 0;
-      if (score > 0.1 && sigTime > twoMinAgo) {
+      if (score > 0.1) {
         newActive.set(agentId, { id: agentId, asset, score, expiry: now + 120000 });
         if (!assetAgents[asset]) assetAgents[asset] = [];
         assetAgents[asset].push(agentId);
