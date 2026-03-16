@@ -281,14 +281,14 @@ export function AgentMapTab() {
             const isActive = activeAgents.has(agent.id);
             return (
               <g key={`line-${agent.id}`}>
-                {/* Dim base — always visible */}
+                {/* Base — always agent color, dim */}
                 <line x1={pos.x} y1={pos.y} x2={cx} y2={cy}
-                  stroke="hsl(220 20% 20%)" strokeWidth={0.8} opacity={0.3} />
-                {/* Bright sweep — only when active */}
+                  stroke={agent.color} strokeWidth={1} opacity={0.18} />
+                {/* Traveling particle — only when active */}
                 {isActive && (
                   <line x1={pos.x} y1={pos.y} x2={cx} y2={cy}
                     stroke={agent.color} strokeWidth={2.5} strokeLinecap="round"
-                    strokeDasharray="220 220" opacity={0.9}
+                    strokeDasharray="30 190" opacity={0.9}
                     style={{ animation: "sweep-inward 1.2s linear infinite" }} />
                 )}
               </g>
@@ -348,8 +348,8 @@ export function AgentMapTab() {
             const pos = getNodePos(agent.angle);
             const isActive = activeAgents.has(agent.id);
             const last = lastSignals.get(agent.id);
-            const nodeColor = isActive ? agent.color : "hsl(220 15% 25%)";
-            const textColor = isActive ? agent.color : "hsl(220 10% 50%)";
+            const nodeColor = agent.color;
+            const textColor = agent.color;
 
             return (
               <g key={agent.id}>
@@ -371,14 +371,14 @@ export function AgentMapTab() {
                   r={32}
                   fill="hsl(220 25% 10%)"
                   stroke={nodeColor}
-                  strokeWidth={isActive ? 2 : 1}
-                  style={{ transition: "all 0.3s ease" }}
+                  strokeWidth={isActive ? 2.5 : 1.5}
+                  style={{ transition: "stroke-width 0.3s ease" }}
                 />
                 <circle
                   cx={pos.x + 22}
                   cy={pos.y - 22}
                   r={4}
-                  fill={isActive ? agent.color : "hsl(220 10% 30%)"}
+                  fill={agent.color}
                   style={{ transition: "fill 0.3s ease" }}
                 />
                 <text
