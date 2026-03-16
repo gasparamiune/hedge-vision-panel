@@ -22,6 +22,7 @@ const AGENTS: AgentNode[] = [
 
 interface SignalData {
   agent_name?: string;
+  signal_type?: string;
   asset?: string;
   score?: number;
   created_at?: string;
@@ -30,9 +31,10 @@ interface SignalData {
 interface DecisionData {
   action?: string;
   asset?: string;
-  agent_count?: number;
+  score?: number;
+  thesis?: string;
   created_at?: string;
-  combined_score?: number;
+  metadata_json?: { agent_count?: number };
 }
 
 interface ActiveAgent {
