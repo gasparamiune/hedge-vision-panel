@@ -68,61 +68,76 @@ export function AgentMapTab() {
     return name?.toLowerCase().replace(/[\s-]+/g, "_") ?? "";
   };
 
+  const normalizeToId = (name: string): string | undefined => {
+    const normalized = normalizeAgentName(name);
+    // Try exact match first
+    const exact = AGENTS.find((a) => a.id === normalized);
+    if (exact) return exact.id;
+    // Try partial match
+    const partial = AGENTS.find((a) => normalized.includes(a.id) || a.id.includes(normalized));
+    if (partial) return partial.id;
+    // Try keyword match
+    const keywords: Record<string, string> = {
+      market: "market_ingestion", ingestion: "market_ingestion", snapshot: "market_ingestion",
+      microcap: "microcap_discovery", discovery: "microcap_discovery",
+      momentum_breakout: "momentum_breakout", "momentum breakout": "momentum_breakout",
+      news_narrative: "news_narrative", "news narrative": "news_narrative",
+      wallet: "wallet_flow", flow: "wallet_flow",
+      polymarket: "polymarket_edge",
+      stock_momentum: "stock_momentum",
+      stock_news: "stock_news",
+    };
+    for (const [key, id] of Object.entries(keywords)) {
+      if (normalized.includes(key)) return id;
+    }
+    return undefined;
+  };
+
   const processSignals = useCallback((signals: SignalData[]) => {
     const now = Date.now();
-    const newActive = new Map(activeAgents);
-    const newLastSignals = new Map(lastSignals);
-    const newParticles: Particle[] = [];
+    const twoMinAgo = now - 2 * 60 * 1000;
 
-    // Track which assets have signals from multiple agents
+    const newLastSignals = new Map<string, { asset: string; score: number }>();
+    const newActive = new Map<string, ActiveAgent>();
     const assetAgents: Record<string, string[]> = {};
 
+    // Group by agent, keep latest per agent
+    const latestByAgent = new Map<string, SignalData>();
     signals.forEach((sig) => {
-      const agentId = normalizeAgentName(sig.agent_name ?? "");
-      const agent = AGENTS.find((a) => a.id === agentId);
-      if (!agent) return;
+      const agentId = normalizeToId(sig.agent_name ?? "");
+      if (!agentId) return;
+      const existing = latestByAgent.get(agentId);
+      if (!existing || (sig.created_at ?? "") > (existing.created_at ?? "")) {
+        latestByAgent.set(agentId, sig);
+      }
+    });
 
+    latestByAgent.forEach((sig, agentId) => {
       const score = sig.score ?? 0;
       const asset = sig.asset ?? "???";
-
       newLastSignals.set(agentId, { asset, score });
 
-      if (score > 0.1) {
-        newActive.set(agentId, { id: agentId, asset, score, expiry: now + 3000 });
-
-        // Create particle
-        particleIdRef.current++;
-        newParticles.push({
-          id: `p-${particleIdRef.current}`,
-          agentId,
-          progress: 0,
-          color: agent.color,
-        });
-
+      const sigTime = sig.created_at ? new Date(sig.created_at).getTime() : 0;
+      if (score > 0.1 && sigTime > twoMinAgo) {
+        newActive.set(agentId, { id: agentId, asset, score, expiry: now + 120000 });
         if (!assetAgents[asset]) assetAgents[asset] = [];
         assetAgents[asset].push(agentId);
       }
     });
 
-    // Check for 3+ agent agreement
-    Object.entries(assetAgents).forEach(([, agents]) => {
+    // 3+ agent agreement
+    Object.values(assetAgents).forEach((agents) => {
       if (agents.length >= 3) {
-        agents.forEach((id) => {
-          const existing = newActive.get(id);
-          if (existing) newActive.set(id, { ...existing, expiry: Date.now() + 3000 });
-        });
         setCenterPulse({ type: "agreement", expiry: Date.now() + 3000 });
       }
     });
 
-    setActiveAgents(newActive);
     setLastSignals(newLastSignals);
-    setParticles((prev) => [...prev, ...newParticles]);
+    setActiveAgents(newActive);
 
-    // Update highest score
     const maxScore = signals.reduce((max, s) => Math.max(max, s.score ?? 0), 0);
     if (maxScore > 0) setHighestScore(maxScore);
-  }, [activeAgents, lastSignals]);
+  }, []);
 
   const processDecisions = useCallback((decisions: DecisionData[]) => {
     if (decisions.length === 0) return;
