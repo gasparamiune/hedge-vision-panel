@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
 interface AgentNode {
@@ -15,9 +18,20 @@ const AGENTS: AgentNode[] = [
   { id: "news_narrative", label: "NEWS NARRATIVE", color: "var(--agent-blue)", angle: 90 },
   { id: "wallet_flow", label: "WALLET FLOW", color: "var(--agent-cyan)", angle: 45 },
   { id: "polymarket_edge", label: "POLYMARKET EDGE", color: "var(--agent-purple)", angle: 0 },
-  { id: "stock_momentum", label: "STOCK MOMENTUM", color: "var(--agent-amber)", angle: 315 },
+  { id: "stock_momentum", label: "STOCK MOMENTUM", color: "hsl(var(--terminal-amber))", angle: 315 },
   { id: "stock_news", label: "STOCK NEWS", color: "var(--agent-yellow)", angle: 270 },
 ];
+
+const AGENT_DESCRIPTIONS: Record<string, string> = {
+  market_ingestion:   "Ingests real-time OHLCV and order-book snapshots across crypto and equity feeds. Normalises data into a unified market structure before distribution.",
+  microcap_discovery: "Scans micro-cap tokens below $50M market cap for anomalous volume spikes, wallet concentration shifts, and early accumulation patterns.",
+  momentum_breakout:  "Detects technical breakouts from consolidation ranges using ATR-normalised momentum. Fires when price and volume confirm a trend initiation.",
+  news_narrative:     "Parses news headlines, social feeds, and earnings transcripts using an LLM classifier to score narrative sentiment and topic relevance.",
+  wallet_flow:        "Tracks on-chain wallet flows, exchange inflows/outflows, and whale wallet activity to surface capital rotation signals.",
+  polymarket_edge:    "Monitors prediction-market probabilities on Polymarket for events correlated with asset price moves, acting on divergences from spot pricing.",
+  stock_momentum:     "Applies cross-sectional momentum ranking to equities, identifying sector rotation and relative-strength leaders.",
+  stock_news:         "Specialised news agent for equities. Prioritises earnings surprises, analyst upgrades, and macro event risk headlines.",
+};
 
 interface SignalData {
   agent_name?: string;
@@ -43,13 +57,6 @@ interface ActiveAgent {
   expiry: number;
 }
 
-interface Particle {
-  id: string;
-  agentId: string;
-  progress: number;
-  color: string;
-}
-
 interface CenterPulse {
   type: "alert" | "paper_trade" | "agreement";
   expiry: number;
@@ -58,13 +65,13 @@ interface CenterPulse {
 export function AgentMapTab() {
   const [activeAgents, setActiveAgents] = useState<Map<string, ActiveAgent>>(new Map());
   const [lastSignals, setLastSignals] = useState<Map<string, { asset: string; score: number }>>(new Map());
-  const [particles, setParticles] = useState<Particle[]>([]);
   const [centerPulse, setCenterPulse] = useState<CenterPulse | null>(null);
   const [highestScore, setHighestScore] = useState<number>(0);
   const [recentDecisions, setRecentDecisions] = useState<DecisionData[]>([]);
   const [debugInfo, setDebugInfo] = useState({ lastFetch: "", signalCount: 0, decisionCount: 0, error: "" });
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [signalHistory, setSignalHistory] = useState<Map<string, SignalData[]>>(new Map());
   const animFrameRef = useRef<number>(0);
-  const particleIdRef = useRef(0);
 
   const normalizeAgentName = (name: string): string => {
     return name?.toLowerCase().replace(/[\s-]+/g, "_") ?? "";
@@ -72,13 +79,10 @@ export function AgentMapTab() {
 
   const normalizeToId = (name: string): string | undefined => {
     const normalized = normalizeAgentName(name);
-    // Try exact match first
     const exact = AGENTS.find((a) => a.id === normalized);
     if (exact) return exact.id;
-    // Try partial match
     const partial = AGENTS.find((a) => normalized.includes(a.id) || a.id.includes(normalized));
     if (partial) return partial.id;
-    // Try keyword match
     const keywords: Record<string, string> = {
       market: "market_ingestion", ingestion: "market_ingestion", snapshot: "market_ingestion",
       microcap: "microcap_discovery", discovery: "microcap_discovery",
@@ -101,7 +105,6 @@ export function AgentMapTab() {
     const newActive = new Map<string, ActiveAgent>();
     const assetAgents: Record<string, string[]> = {};
 
-    // Group by agent, keep latest per agent — match by agent_name OR signal_type
     const latestByAgent = new Map<string, SignalData>();
     signals.forEach((sig) => {
       const agentId = normalizeToId(sig.agent_name ?? "") ?? normalizeToId(sig.signal_type ?? "");
@@ -124,7 +127,6 @@ export function AgentMapTab() {
       }
     });
 
-    // 3+ agent agreement
     Object.values(assetAgents).forEach((agents) => {
       if (agents.length >= 3) {
         setCenterPulse({ type: "agreement", expiry: Date.now() + 3000 });
@@ -136,6 +138,15 @@ export function AgentMapTab() {
 
     const maxScore = signals.reduce((max, s) => Math.max(max, s.score ?? 0), 0);
     if (maxScore > 0) setHighestScore(maxScore);
+
+    setSignalHistory(prev => {
+      const next = new Map(prev);
+      latestByAgent.forEach((sig, agentId) => {
+        const existing = next.get(agentId) ?? [];
+        next.set(agentId, [sig, ...existing].slice(0, 5));
+      });
+      return next;
+    });
   }, []);
 
   const processDecisions = useCallback((decisions: DecisionData[]) => {
@@ -177,22 +188,13 @@ export function AgentMapTab() {
     return () => clearInterval(id);
   }, [processSignals, processDecisions]);
 
-  // Animate particles + cleanup expired states
+  // Animate cleanup for expired states
   useEffect(() => {
     let lastTime = performance.now();
     const tick = (time: number) => {
-      const dt = (time - lastTime) / 1000;
       lastTime = time;
       const now = Date.now();
 
-      // Advance particles
-      setParticles((prev) =>
-        prev
-          .map((p) => ({ ...p, progress: p.progress + dt * 0.8 }))
-          .filter((p) => p.progress < 1)
-      );
-
-      // Cleanup expired active agents
       setActiveAgents((prev) => {
         const next = new Map(prev);
         let changed = false;
@@ -202,7 +204,6 @@ export function AgentMapTab() {
         return changed ? next : prev;
       });
 
-      // Cleanup center pulse
       setCenterPulse((prev) => (prev && prev.expiry < now ? null : prev));
 
       animFrameRef.current = requestAnimationFrame(tick);
@@ -246,6 +247,14 @@ export function AgentMapTab() {
           <div className="text-muted-foreground">DECISIONS: <span className="text-foreground">{debugInfo.decisionCount}</span></div>
           {debugInfo.error && <div className="text-destructive">ERR: {debugInfo.error}</div>}
         </div>
+
+        <style>{`
+          @keyframes sweep-inward {
+            from { stroke-dashoffset: 220; }
+            to   { stroke-dashoffset: 0; }
+          }
+        `}</style>
+
         <svg viewBox="0 0 800 600" className="w-full" style={{ maxHeight: "65vh" }}>
           <defs>
             {AGENTS.map((agent) => (
@@ -266,42 +275,23 @@ export function AgentMapTab() {
             </filter>
           </defs>
 
-          {/* Connection lines */}
+          {/* Connection lines — two-layer sweep system */}
           {AGENTS.map((agent) => {
             const pos = getNodePos(agent.angle);
             const isActive = activeAgents.has(agent.id);
             return (
-              <line
-                key={`line-${agent.id}`}
-                x1={pos.x}
-                y1={pos.y}
-                x2={cx}
-                y2={cy}
-                stroke={isActive ? agent.color : "hsl(220 20% 20%)"}
-                strokeWidth={isActive ? 2 : 0.8}
-                opacity={isActive ? 0.8 : 0.3}
-                style={{ transition: "all 0.5s ease" }}
-              />
-            );
-          })}
-
-          {/* Particles */}
-          {particles.map((p) => {
-            const agent = AGENTS.find((a) => a.id === p.agentId);
-            if (!agent) return null;
-            const start = getNodePos(agent.angle);
-            const px = start.x + (cx - start.x) * p.progress;
-            const py = start.y + (cy - start.y) * p.progress;
-            return (
-              <circle
-                key={p.id}
-                cx={px}
-                cy={py}
-                r={3}
-                fill={p.color}
-                opacity={1 - p.progress * 0.5}
-                filter={`url(#glow-${p.agentId})`}
-              />
+              <g key={`line-${agent.id}`}>
+                {/* Dim base — always visible */}
+                <line x1={pos.x} y1={pos.y} x2={cx} y2={cy}
+                  stroke="hsl(220 20% 20%)" strokeWidth={0.8} opacity={0.3} />
+                {/* Bright sweep — only when active */}
+                {isActive && (
+                  <line x1={pos.x} y1={pos.y} x2={cx} y2={cy}
+                    stroke={agent.color} strokeWidth={2.5} strokeLinecap="round"
+                    strokeDasharray="220 220" opacity={0.9}
+                    style={{ animation: "sweep-inward 1.2s linear infinite" }} />
+                )}
+              </g>
             );
           })}
 
@@ -363,7 +353,6 @@ export function AgentMapTab() {
 
             return (
               <g key={agent.id}>
-                {/* Glow ring when active */}
                 {isActive && (
                   <circle
                     cx={pos.x}
@@ -385,7 +374,6 @@ export function AgentMapTab() {
                   strokeWidth={isActive ? 2 : 1}
                   style={{ transition: "all 0.3s ease" }}
                 />
-                {/* Status dot */}
                 <circle
                   cx={pos.x + 22}
                   cy={pos.y - 22}
@@ -393,7 +381,6 @@ export function AgentMapTab() {
                   fill={isActive ? agent.color : "hsl(220 10% 30%)"}
                   style={{ transition: "fill 0.3s ease" }}
                 />
-                {/* Agent label */}
                 <text
                   x={pos.x}
                   y={pos.y - 8}
@@ -406,11 +393,9 @@ export function AgentMapTab() {
                 >
                   {agent.label}
                 </text>
-                {/* Last asset */}
                 <text x={pos.x} y={pos.y + 4} textAnchor="middle" fill="hsl(220 10% 60%)" fontSize="9" fontFamily="monospace" fontWeight="bold">
                   {last?.asset ?? "—"}
                 </text>
-                {/* Last score */}
                 <text x={pos.x} y={pos.y + 16} textAnchor="middle" fill="hsl(220 10% 40%)" fontSize="7" fontFamily="monospace">
                   {last ? last.score.toFixed(3) : "0.000"}
                 </text>
@@ -418,6 +403,129 @@ export function AgentMapTab() {
             );
           })}
         </svg>
+
+        {/* Transparent hit-zone buttons for hover + click */}
+        <TooltipProvider delayDuration={200}>
+          <div className="absolute inset-0 pointer-events-none">
+            {AGENTS.map((agent) => {
+              const pos = getNodePos(agent.angle);
+              const last = lastSignals.get(agent.id);
+              return (
+                <Tooltip key={agent.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="absolute pointer-events-auto rounded-full focus:outline-none"
+                      style={{
+                        left: `${(pos.x / 800) * 100}%`,
+                        top: `${(pos.y / 600) * 100}%`,
+                        width: "8%", aspectRatio: "1",
+                        transform: "translate(-50%, -50%)",
+                        background: "transparent",
+                      }}
+                      onClick={() => setSelectedAgentId(prev => prev === agent.id ? null : agent.id)}
+                      aria-label={`View details for ${agent.label}`}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}
+                    className="font-mono text-[11px] bg-popover/95 border border-border rounded-sm px-2 py-1.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: agent.color }} />
+                      <span className="font-bold text-foreground tracking-wide">{agent.label}</span>
+                    </div>
+                    {last
+                      ? <div className="text-muted-foreground">{last.asset} · {last.score.toFixed(3)}</div>
+                      : <div className="text-muted-foreground">No signal yet</div>}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
+
+        {/* Slide-in side panel */}
+        <AnimatePresence>
+          {selectedAgentId && (() => {
+            const agent   = AGENTS.find(a => a.id === selectedAgentId)!;
+            const last    = lastSignals.get(selectedAgentId);
+            const history = signalHistory.get(selectedAgentId) ?? [];
+            const isActive = activeAgents.has(selectedAgentId);
+            return (
+              <motion.div
+                key="agent-panel"
+                initial={{ x: "100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: "100%", opacity: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="absolute top-0 right-0 h-full w-72 border-l border-border bg-background/95 backdrop-blur-sm z-20 overflow-y-auto"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border sticky top-0 bg-background/95"
+                  style={{ borderLeftColor: agent.color, borderLeftWidth: 3 }}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full"
+                      style={{ background: isActive ? agent.color : "hsl(220 10% 30%)" }} />
+                    <span className="font-mono text-xs font-bold tracking-widest uppercase">{agent.label}</span>
+                  </div>
+                  <button onClick={() => setSelectedAgentId(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1">✕</button>
+                </div>
+                {/* Description */}
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+                    {AGENT_DESCRIPTIONS[agent.id]}
+                  </p>
+                </div>
+                {/* Latest signal */}
+                {last && (
+                  <div className="px-4 py-3 border-b border-border">
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-2">LATEST SIGNAL</div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-sm" style={{ color: agent.color }}>{last.asset}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{last.score.toFixed(3)}</span>
+                    </div>
+                  </div>
+                )}
+                {/* Signal history */}
+                <div className="px-4 py-3 border-b border-border">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-2">SIGNAL HISTORY</div>
+                  {history.length === 0
+                    ? <p className="text-[10px] font-mono text-muted-foreground">No history yet</p>
+                    : <div className="space-y-1.5">
+                        {history.map((sig, i) => (
+                          <div key={i} className="flex items-center justify-between text-[10px] font-mono gap-2">
+                            <span className="text-foreground">{sig.asset ?? "—"}</span>
+                            <span className="text-muted-foreground">{(sig.score ?? 0).toFixed(3)}</span>
+                            <span className="text-muted-foreground/60 tabular-nums">
+                              {sig.created_at ? new Date(sig.created_at).toLocaleTimeString([], { hour12: false }) : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                  }
+                </div>
+                {/* Linked decisions */}
+                <div className="px-4 py-3">
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mb-2">RECENT DECISIONS</div>
+                  {recentDecisions.length === 0
+                    ? <p className="text-[10px] font-mono text-muted-foreground">No decisions yet</p>
+                    : <div className="space-y-2">
+                        {recentDecisions.slice(0, 3).map((d, i) => (
+                          <div key={i} className="border border-border rounded-sm p-2 font-mono text-[10px]">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="font-bold text-foreground">{d.asset ?? "?"}</span>
+                              <span className="text-muted-foreground uppercase">{d.action}</span>
+                            </div>
+                            {d.thesis && <p className="text-muted-foreground/70 leading-snug line-clamp-2">{d.thesis}</p>}
+                          </div>
+                        ))}
+                      </div>
+                  }
+                </div>
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
       </div>
 
       {/* Recent decisions feed */}
@@ -431,44 +539,48 @@ export function AgentMapTab() {
               AWAITING DECISION FEED…
             </div>
           ) : (
-            recentDecisions.map((d, i) => {
-              const isAlert = d.action === "alert";
-              const isPT = d.action === "paper_trade";
-              const borderColor = isAlert
-                ? "border-terminal-amber/40"
-                : isPT
-                  ? "border-terminal-lime/40"
-                  : "border-border";
-              const bgColor = isAlert
-                ? "bg-terminal-amber/5"
-                : isPT
-                  ? "bg-terminal-lime/5"
-                  : "bg-card";
-              return (
-                <div
-                  key={`${d.asset}-${d.created_at}-${i}`}
-                  className={`border ${borderColor} ${bgColor} rounded-sm p-3 font-mono`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-foreground">{d.asset ?? "?"}</span>
-                    <span
-                      className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm ${
-                        isAlert
-                          ? "bg-terminal-amber/20 text-terminal-amber"
-                          : isPT
-                            ? "bg-terminal-lime/20 text-terminal-lime"
-                            : "bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      {d.action ?? "—"}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {d.metadata_json?.agent_count ?? 0} agents • {(d.score ?? 0).toFixed(2)}
-                  </div>
-                </div>
-              );
-            })
+            <AnimatePresence mode="popLayout" initial={false}>
+              {recentDecisions.map((d, i) => {
+                const isAlert = d.action === "alert";
+                const isPT    = d.action === "paper_trade";
+                return (
+                  <motion.div
+                    key={`${d.asset}-${d.created_at}`}
+                    layout
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className={cn(
+                      "border rounded-sm p-3 font-mono",
+                      isAlert ? "border-terminal-amber/40 bg-terminal-amber/5"
+                        : isPT ? "border-terminal-lime/40 bg-terminal-lime/5"
+                        : "border-border bg-card"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-foreground">{d.asset ?? "?"}</span>
+                      <span className={cn(
+                        "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm",
+                        isAlert ? "bg-terminal-amber/20 text-terminal-amber"
+                          : isPT ? "bg-terminal-lime/20 text-terminal-lime"
+                          : "bg-secondary text-muted-foreground"
+                      )}>{d.action ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-secondary border border-border text-[9px] font-bold text-muted-foreground">
+                        {d.metadata_json?.agent_count ?? 0}
+                        <span className="ml-0.5 font-normal opacity-60">AGT</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{(d.score ?? 0).toFixed(2)}</span>
+                    </div>
+                    {d.thesis && (
+                      <p className="text-[9px] text-muted-foreground/70 leading-snug line-clamp-2">{d.thesis}</p>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           )}
         </div>
       </div>
